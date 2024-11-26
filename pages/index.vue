@@ -67,37 +67,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { add } from 'ionicons/icons'
 import { useArguments } from '~/composables/useArguments'
 import { useVotes } from '~/composables/useVotes'
-import type { Argument } from '~/types'
 import { useUser } from '~/composables/useUser'
+import { useArgumentsStore } from '~/stores/arguments'
+
 
 type ViewMode = 'published' | 'voted' | 'my-arguments'
 
-// Current user from auth store (you'll need to implement this)
-const { user, isLoggedIn } = useUser()  // user is already the ref
-
+const argumentsStore = useArgumentsStore()
 const viewMode = ref<ViewMode>('published')
-const { argumentsList, loading, fetchMore } = useArguments()
+const { user } = useUser()
+
+const { args: argumentsList, loading, fetchArguments, fetchMore } = useArguments()
 const { getVoteStatus, clearVotes } = useVotes()
+import type { Argument, ArgumentStatus } from '~/types'
 
 const filteredArguments = computed(() => {
-  if (!argumentsList.value) return []
-
-  return argumentsList.value.filter((argument: Argument) => {
-    switch (viewMode.value) {
-      case 'published':
-        return argument.status === 'published' && !getVoteStatus(argument.id.toString())
-      case 'voted':
-        return getVoteStatus(argument.id.toString())
-      case 'my-arguments':
-        return argument.createdById === user.value?.id
-      default:
-        return false
-    }
-  })
+  return argumentsStore.getFilteredArguments(viewMode.value, user.value?.id)
+    .filter(arg => !getVoteStatus(arg.id.toString()))
 })
 
 const loadMore = async (event: CustomEvent) => {
@@ -107,9 +97,16 @@ const loadMore = async (event: CustomEvent) => {
   }
 }
 
-onMounted(() => {
-  // Clear local vote cache on component mount
-  clearVotes()
+watch(viewMode, async (newMode) => {
+  const params = newMode === 'my-arguments'
+    ? { createdById: user.value?.id }
+    : { status: 'published' as ArgumentStatus }
+
+  await argumentsStore.fetchArguments(params)
+})
+
+onMounted(async () => {
+  await argumentsStore.fetchArguments({ status: 'published' })
 })
 </script>
 

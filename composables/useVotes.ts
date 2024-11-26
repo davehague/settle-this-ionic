@@ -1,58 +1,59 @@
 // composables/useVotes.ts
 import { ref } from "vue";
+import type { Vote } from "~/types";
 
-// Track voted arguments in local storage
-const VOTES_STORAGE_KEY = "settleThis_votes";
+export function useVotes() {
+  const isVoting = ref(false);
+  const votedArguments = ref<Set<string>>(new Set());
 
-export function useVotes(argumentId?: string) {
-  const getStoredVotes = (): Record<string, number> => {
-    const stored = localStorage.getItem(VOTES_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
+  const getVoteStatus = (argumentId: string) => {
+    return votedArguments.value.has(argumentId);
   };
 
-  const saveVotes = (votes: Record<string, number>) => {
-    localStorage.setItem(VOTES_STORAGE_KEY, JSON.stringify(votes));
-  };
-
-  // Get vote status for a specific argument
-  const getVoteStatus = (id: string): boolean => {
-    const votes = getStoredVotes();
-    return !!votes[id];
+  const recordVote = (argumentId: string) => {
+    votedArguments.value.add(argumentId);
   };
 
   const clearVotes = () => {
-    localStorage.removeItem(VOTES_STORAGE_KEY);
+    votedArguments.value.clear();
   };
 
-  // For specific argument instance
-  const hasVoted = ref(argumentId ? getVoteStatus(argumentId) : false);
-
-  const submitVote = async (vote: number | "for" | "against") => {
-    if (!argumentId) return;
-
+  const submitVote = async (voteData: {
+    argumentId: string;
+    votedFor?: boolean;
+    votedForParty1?: boolean;
+  }): Promise<Vote> => {
+    isVoting.value = true;
     try {
-      // TODO: Replace with actual API call
-      // await $fetch(`/api/votes/${argumentId}`, {
-      //   method: 'POST',
-      //   body: { vote }
-      // })
+      const response = await $fetch<Vote>(
+        `/api/arguments/${voteData.argumentId}/vote`,
+        {
+          method: "POST",
+          body: voteData,
+        }
+      );
+      recordVote(voteData.argumentId);
+      return response;
+    } finally {
+      isVoting.value = false;
+    }
+  };
 
-      // Store vote in localStorage
-      const votes = getStoredVotes();
-      votes[argumentId] =
-        typeof vote === "number" ? vote : vote === "for" ? 1 : 0;
-      saveVotes(votes);
-
-      hasVoted.value = true;
+  const getUserVote = async (argumentId: string): Promise<Vote | null> => {
+    try {
+      return await $fetch<Vote>(`/api/arguments/${argumentId}/vote`);
     } catch (error) {
-      console.error("Error submitting vote:", error);
+      // If no vote exists, return null
+      return null;
     }
   };
 
   return {
-    hasVoted,
-    submitVote,
+    isVoting,
     getVoteStatus,
+    recordVote,
     clearVotes,
+    submitVote,
+    getUserVote,
   };
 }

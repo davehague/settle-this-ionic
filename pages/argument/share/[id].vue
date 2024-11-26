@@ -1,4 +1,3 @@
-// pages/argument/share/[id].vue
 <template>
   <ion-page>
     <ion-header>
@@ -11,7 +10,10 @@
     </ion-header>
 
     <ion-content class="ion-padding">
-      <template v-if="argument">
+      <ion-alert :is-open="!!errorMessage" :message="errorMessage" :buttons="['OK']"
+        @didDismiss="errorMessage = ''"></ion-alert>
+
+      <template v-if="argument && twoPartyData">
         <ion-card>
           <ion-card-header>
             <ion-card-title>{{ argument.topic }}</ion-card-title>
@@ -19,13 +21,13 @@
           </ion-card-header>
 
           <ion-card-content>
-            <p class="ion-margin-bottom">Your position: {{ argument.firstPartyPosition }}</p>
+            <p class="ion-margin-bottom">First Party's Position: {{ twoPartyData.firstPartyPosition }}</p>
 
             <ion-item>
               <ion-label position="stacked">Share Link</ion-label>
               <ion-input readonly :value="shareLink" class="ion-margin-bottom"></ion-input>
               <ion-button slot="end" @click="copyLink">
-                <ion-icon :icon="copy" slot="start"></ion-icon>
+                <ion-icon :icon="copyIcon" slot="start"></ion-icon>
                 Copy
               </ion-button>
             </ion-item>
@@ -37,45 +39,58 @@
         </ion-card>
       </template>
 
-      <ion-spinner v-else></ion-spinner>
+      <div v-else-if="isLoading" class="ion-text-center">
+        <ion-spinner></ion-spinner>
+      </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { copy } from 'ionicons/icons';
-import type { TwoPartyArgument } from '~/types';
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { copy as copyIcon } from 'ionicons/icons'
+import type { BaseArgument } from '~/types'
 
-const route = useRoute();
-const argument = ref<TwoPartyArgument | null>(null);
+const route = useRoute()
+const isLoading = ref(true)
+const errorMessage = ref('')
+const argument = ref<BaseArgument | null>(null)
+const twoPartyData = ref<{ firstPartyPosition: string } | null>(null)
 
 // Get base URL for share link
-const baseUrl = window.location.origin;
+const baseUrl = window.location.origin
 const shareLink = computed(() =>
-  `${baseUrl}/argument/respond/${route.params.id}`
-);
+  argument.value?.shareToken
+    ? `${baseUrl}/argument/share/${argument.value.shareToken}`
+    : ''
+)
 
 // Load argument data
 onMounted(async () => {
   try {
-    const data = await $fetch<TwoPartyArgument>(
-      `/api/arguments/${route.params.id}`
-    );
-    argument.value = data;
-  } catch (error) {
-    console.error('Error loading argument:', error);
+    const response = await $fetch<{
+      argument: BaseArgument,
+      twoPartyArgument: { firstPartyPosition: string }
+    }>(`/api/arguments/share/${route.params.id}`)
+
+    argument.value = response.argument
+    twoPartyData.value = response.twoPartyArgument
+  } catch (error: any) {
+    console.error('Error loading argument:', error)
+    errorMessage.value = error.message || 'Failed to load argument'
+  } finally {
+    isLoading.value = false
   }
-});
+})
 
 // Copy link to clipboard
 const copyLink = async () => {
   try {
-    await navigator.clipboard.writeText(shareLink.value);
-    // You might want to add a toast or notification here
+    await navigator.clipboard.writeText(shareLink.value)
+    // TODO: Add toast notification for successful copy
   } catch (error) {
-    console.error('Error copying link:', error);
+    errorMessage.value = 'Failed to copy link to clipboard'
   }
-};
+}
 </script>

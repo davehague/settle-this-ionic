@@ -80,13 +80,35 @@
       </div>
 
     </ion-content>
+
+    <ion-modal :is-open="showShareLink">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Share with Second Party</ion-title>
+          <ion-buttons slot="end">
+            <ion-button @click="showShareLink = false">Close</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <p>Share this link with the other party to let them respond:</p>
+        <ion-item>
+          <ion-input readonly :value="shareUrl"></ion-input>
+          <ion-button slot="end" fill="clear" @click="copyToClipboard">
+            <ion-icon :icon="copyIcon" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-item>
+      </ion-content>
+    </ion-modal>
+
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { save } from 'ionicons/icons'
+import { save, copy as copyIcon } from 'ionicons/icons'
 import type { ArgumentType, ArgumentStatus } from '~/types'
+import { useArguments } from '~/composables/useArguments'
 
 interface FormData {
   type: ArgumentType
@@ -97,7 +119,8 @@ interface FormData {
   status?: ArgumentStatus
 }
 
-// Form state
+const { createArgument } = useArguments()
+
 const formData = ref<FormData>({
   type: 'twoParty',
   topic: '',
@@ -110,7 +133,9 @@ const isDraft = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
-// Computed properties
+const showShareLink = ref(false)
+const shareUrl = ref('')
+
 const isValid = computed(() => {
   const hasCommonFields = formData.value.topic.trim() && formData.value.category
 
@@ -121,7 +146,17 @@ const isValid = computed(() => {
   return hasCommonFields && formData.value.proposal?.trim()
 })
 
-// API interaction functions
+const copyToClipboard = async () => {
+  try {
+    await navigator.clipboard.writeText(shareUrl.value)
+    // Optionally show a success toast or message
+  } catch (err) {
+    console.error('Failed to copy:', err)
+    // Optionally show an error message
+  }
+}
+
+
 const publishArgument = async () => {
   if (!isValid.value) return
 
@@ -134,19 +169,11 @@ const publishArgument = async () => {
       status: formData.value.type === 'twoParty' ? 'awaitingSecondParty' : 'published'
     }
 
-    const response = await $fetch('/api/arguments', {
-      method: 'POST',
-      body: payload
-    })
+    const response = await createArgument(payload)
 
-    if (!response || typeof response.id !== 'number') {
-      throw new Error('Invalid response from server')
-    }
-
-    // Navigate based on argument type
     if (formData.value.type === 'twoParty') {
-      // Using shareToken for sharing URL
-      await navigateTo(`/argument/share/${response.shareToken}`)
+      shareUrl.value = `${window.location.origin}/argument/share/${response.shareToken}`
+      showShareLink.value = true
     } else {
       await navigateTo('/')
     }
@@ -170,11 +197,7 @@ const saveDraft = async () => {
       status: 'draft' as const
     }
 
-    await $fetch('/api/arguments', {
-      method: 'POST',
-      body: payload
-    })
-
+    await createArgument(payload)
     isDraft.value = true
     await navigateTo('/drafts')
   } catch (error: any) {

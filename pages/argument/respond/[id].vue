@@ -56,7 +56,7 @@ const { data: argument } = await useFetch(`/api/arguments/${route.params.id}`)
 const submitResponse = async () => {
   try {
     await $fetch(`/api/arguments/${route.params.id}`, {
-      method: 'POST',
+      method: 'PATCH',
       body: {
         secondPartyPosition: response.value,
         status: 'active'

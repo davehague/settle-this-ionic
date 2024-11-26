@@ -90,3 +90,48 @@ CREATE TRIGGER update_arguments_updated_at
     BEFORE UPDATE ON settlethis.arguments
     FOR EACH ROW
     EXECUTE FUNCTION settlethis.update_updated_at_column();
+
+
+-- ////////////////////////////////////////////
+
+-- Stored procedures
+
+-- Function to increment party1 votes
+CREATE OR REPLACE FUNCTION settlethis.increment_party1_votes(arg_id BIGINT)
+RETURNS void AS $$
+BEGIN
+  UPDATE settlethis.two_party_arguments
+  SET party1_votes = party1_votes + 1
+  WHERE argument_id = arg_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to increment party2 votes
+CREATE OR REPLACE FUNCTION settlethis.increment_party2_votes(arg_id BIGINT)
+RETURNS void AS $$
+BEGIN
+  UPDATE settlethis.two_party_arguments
+  SET party2_votes = party2_votes + 1
+  WHERE argument_id = arg_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to increment votes for
+CREATE OR REPLACE FUNCTION settlethis.increment_votes_for(arg_id BIGINT)
+RETURNS void AS $$
+BEGIN
+  UPDATE settlethis.single_proposal_arguments
+  SET votes_for = votes_for + 1
+  WHERE argument_id = arg_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to increment votes against
+CREATE OR REPLACE FUNCTION settlethis.increment_votes_against(arg_id BIGINT)
+RETURNS void AS $$
+BEGIN
+  UPDATE settlethis.single_proposal_arguments
+  SET votes_against = votes_against + 1
+  WHERE argument_id = arg_id;
+END;
+$$ LANGUAGE plpgsql;
