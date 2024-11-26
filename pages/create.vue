@@ -108,7 +108,9 @@
 import { ref, computed } from 'vue'
 import { save, copy as copyIcon } from 'ionicons/icons'
 import type { ArgumentType, ArgumentStatus } from '~/types'
-import { useArguments } from '~/composables/useArguments'
+
+import { useArgumentsStore } from '~/stores/arguments'
+const argumentsStore = useArgumentsStore()
 
 interface FormData {
   type: ArgumentType
@@ -169,7 +171,12 @@ const publishArgument = async () => {
       status: formData.value.type === 'twoParty' ? 'awaitingSecondParty' : 'published'
     }
 
-    const response = await createArgument(payload)
+    const response = await $fetch('/api/arguments', {
+      method: 'POST',
+      body: payload
+    })
+
+    argumentsStore.clearCache()
 
     if (formData.value.type === 'twoParty') {
       shareUrl.value = `${window.location.origin}/argument/share/${response.shareToken}`

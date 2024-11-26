@@ -3,6 +3,7 @@ import { defineEventHandler, getQuery, createError } from "h3";
 import { serverSupabase } from "~/server/utils/serverSupabaseClient";
 import type { Argument } from "~/types";
 
+
 export default defineEventHandler(async (event) => {
   try {
     const query = getQuery(event);

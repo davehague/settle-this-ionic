@@ -47,18 +47,17 @@ export const useArgumentsStore = defineStore("arguments", {
       this.loading = true;
 
       try {
-        const response = await useFetch("/api/arguments", {
+        const data = (await $fetch("/api/arguments", {
           params,
-          key: cacheKey,
-        });
-
-        const data = response.data.value as Argument[];
+          method: "GET",
+        })) as Argument[];
 
         // Update cache
         this.cache[cacheKey] = data;
         this.lastFetch[cacheKey] = Date.now();
         this.arguments = data;
 
+        console.log("Fetched arguments:", data.length);
         return data;
       } catch (error) {
         console.error("Error fetching arguments:", error);
@@ -82,8 +81,13 @@ export const useArgumentsStore = defineStore("arguments", {
         switch (viewMode) {
           case "published":
             return (
-              arg.status === "published" || arg.status === "awaitingSecondParty"
+              arg.status === "published" ||
+              (arg.status === "awaitingSecondParty" &&
+                arg.createdById !== userId)
             );
+
+          // case "voted":
+          //   userVotes.some(vote => vote.argumentId === arg.id)
           case "my-arguments":
             return arg.createdById === userId;
           default:

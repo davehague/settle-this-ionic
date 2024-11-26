@@ -85,6 +85,29 @@ const { args: argumentsList, loading, fetchArguments, fetchMore } = useArguments
 const { getVoteStatus, clearVotes } = useVotes()
 import type { Argument, ArgumentStatus } from '~/types'
 
+const getFilteredArguments = (viewMode: 'published' | 'voted' | 'my-arguments', userId?: string) => {
+  switch (viewMode) {
+    case 'published':
+      return argumentsList.value.filter(arg =>
+        arg.status === 'published' ||
+        (arg.status === 'awaitingSecondParty' && arg.createdById !== userId)
+      )
+
+    // case 'voted':
+    //   return argumentsList.value.filter(arg => 
+    //     userVotes.some(vote => vote.argumentId === arg.id)
+    //   )
+
+    case 'my-arguments':
+      return argumentsList.value.filter(arg =>
+        arg.createdById === userId
+      )
+
+    default:
+      return []
+  }
+}
+
 const filteredArguments = computed(() => {
   return argumentsStore.getFilteredArguments(viewMode.value, user.value?.id)
     .filter(arg => !getVoteStatus(arg.id.toString()))
@@ -106,7 +129,7 @@ watch(viewMode, async (newMode) => {
 })
 
 onMounted(async () => {
-  await argumentsStore.fetchArguments({ status: 'published' })
+  await argumentsStore.fetchArguments()
 })
 </script>
 
