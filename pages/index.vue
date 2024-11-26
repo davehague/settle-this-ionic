@@ -112,4 +112,4 @@ onMounted(() => {
   clearVotes()
 })
 </script>
-</template>
+

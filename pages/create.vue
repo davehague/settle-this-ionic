@@ -185,4 +185,3 @@ const saveDraft = async () => {
   }
 }
 </script>
-</template>

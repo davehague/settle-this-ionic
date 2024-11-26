@@ -18,7 +18,8 @@
           </ion-card-header>
           <ion-card-content>
             <h3>Their Position:</h3>
-            <p>{{ argument.firstPartyPosition }}</p>
+            <p v-if="argument.type === 'twoParty'">{{ argument.firstPartyPosition }}</p>
+            <p v-else>{{ argument.proposal }}</p>
           </ion-card-content>
         </ion-card>
 
@@ -55,7 +56,7 @@ const { data: argument } = await useFetch(`/api/arguments/${route.params.id}`)
 const submitResponse = async () => {
   try {
     await $fetch(`/api/arguments/${route.params.id}`, {
-      method: 'PATCH',
+      method: 'POST',
       body: {
         secondPartyPosition: response.value,
         status: 'active'
