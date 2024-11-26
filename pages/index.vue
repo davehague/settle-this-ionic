@@ -13,13 +13,13 @@
 
       <ion-toolbar>
         <ion-segment v-model="viewMode">
-          <ion-segment-button value="active">
+          <ion-segment-button value="published">
             <ion-label>To Vote</ion-label>
           </ion-segment-button>
           <ion-segment-button value="voted">
             <ion-label>Voted</ion-label>
           </ion-segment-button>
-          <ion-segment-button value="mine">
+          <ion-segment-button value="my-arguments">
             <ion-label>My Arguments</ion-label>
           </ion-segment-button>
         </ion-segment>
@@ -33,14 +33,14 @@
 
       <template v-else>
         <ion-list v-if="filteredArguments.length > 0">
-          <ion-item v-for="item in filteredArguments" :key="item.id">
-            <ArgumentCard :argument="item" />
+          <ion-item v-for="argument in filteredArguments" :key="argument.id">
+            <ArgumentCard :argument="argument" />
           </ion-item>
         </ion-list>
 
         <div v-else class="ion-padding ion-text-center">
           <ion-text color="medium">
-            <template v-if="viewMode === 'active'">
+            <template v-if="viewMode === 'published'">
               No arguments to vote on
             </template>
             <template v-else-if="viewMode === 'voted'">
@@ -67,38 +67,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { add } from 'ionicons/icons'
 import { useArguments } from '~/composables/useArguments'
 import { useVotes } from '~/composables/useVotes'
+import type { Argument } from '~/types'
+import { useUser } from '~/composables/useUser'
 
-const viewMode = ref('active')
+type ViewMode = 'published' | 'voted' | 'my-arguments'
+
+// Current user from auth store (you'll need to implement this)
+const { user, isLoggedIn } = useUser()  // user is already the ref
+
+const viewMode = ref<ViewMode>('published')
 const { argumentsList, loading, fetchMore } = useArguments()
-const { getVoteStatus } = useVotes()
+const { getVoteStatus, clearVotes } = useVotes()
 
 const filteredArguments = computed(() => {
   if (!argumentsList.value) return []
 
-  switch (viewMode.value) {
-    case 'active':
-      return argumentsList.value.filter(arg => !getVoteStatus(arg.id))
-    case 'voted':
-      return argumentsList.value.filter(arg => getVoteStatus(arg.id))
-    case 'mine':
-      return argumentsList.value.filter(arg => isUserArgument(arg.id))
-    default:
-      return []
-  }
+  return argumentsList.value.filter((argument: Argument) => {
+    switch (viewMode.value) {
+      case 'published':
+        return argument.status === 'published' && !getVoteStatus(argument.id.toString())
+      case 'voted':
+        return getVoteStatus(argument.id.toString())
+      case 'my-arguments':
+        return argument.createdById === user.value?.id
+      default:
+        return false
+    }
+  })
 })
 
-// Mock function - replace with actual user check
-const isUserArgument = (id: string) => {
-  // TODO: Implement actual check against user ID
-  return false
+const loadMore = async (event: CustomEvent) => {
+  await fetchMore()
+  if (event.target) {
+    (event.target as HTMLIonInfiniteScrollElement).complete()
+  }
 }
 
-const loadMore = async (event: any) => {
-  await fetchMore()
-  event.target.complete()
-}
+onMounted(() => {
+  // Clear local vote cache on component mount
+  clearVotes()
+})
 </script>
+</template>

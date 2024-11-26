@@ -20,6 +20,10 @@ export function useVotes(argumentId?: string) {
     return !!votes[id];
   };
 
+  const clearVotes = () => {
+    localStorage.removeItem(VOTES_STORAGE_KEY);
+  };
+
   // For specific argument instance
   const hasVoted = ref(argumentId ? getVoteStatus(argumentId) : false);
 
@@ -49,5 +53,6 @@ export function useVotes(argumentId?: string) {
     hasVoted,
     submitVote,
     getVoteStatus,
+    clearVotes,
   };
 }

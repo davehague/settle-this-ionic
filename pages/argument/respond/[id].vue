@@ -26,7 +26,7 @@
           <ion-item>
             <ion-label position="stacked">Your Response</ion-label>
             <ion-textarea v-model="response" required placeholder="State your position..." :counter="true"
-              maxlength="500" rows="4"></ion-textarea>
+              :maxlength="500" :rows="4"></ion-textarea>
           </ion-item>
 
           <div class="ion-padding">
@@ -50,7 +50,7 @@ const route = useRoute()
 const router = useRouter()
 const response = ref('')
 
-const { argument } = await useFetch(`/api/arguments/${route.params.id}`)
+const { data: argument } = await useFetch(`/api/arguments/${route.params.id}`)
 
 const submitResponse = async () => {
   try {

@@ -16,15 +16,12 @@
       </ion-toolbar>
     </ion-header>
 
-
-
     <ion-content class="ion-padding">
-
       <ion-alert :is-open="!!errorMessage" :message="errorMessage" :buttons="['OK']"
         @didDismiss="errorMessage = ''"></ion-alert>
 
       <!-- Argument Type Selection -->
-      <ion-segment v-model="argumentType" class="ion-margin-bottom">
+      <ion-segment v-model="formData.type" class="ion-margin-bottom">
         <ion-segment-button value="twoParty">
           <ion-label>Two Party Debate</ion-label>
         </ion-segment-button>
@@ -36,12 +33,12 @@
       <!-- Common Fields -->
       <ion-item>
         <ion-label position="stacked">Topic</ion-label>
-        <ion-input v-model="topic" placeholder="What's the discussion about?" required></ion-input>
+        <ion-input v-model="formData.topic" placeholder="What's the discussion about?" required></ion-input>
       </ion-item>
 
       <ion-item>
         <ion-label position="stacked">Category</ion-label>
-        <ion-select v-model="category">
+        <ion-select v-model="formData.category">
           <ion-select-option value="social">Social</ion-select-option>
           <ion-select-option value="work">Work</ion-select-option>
           <ion-select-option value="food">Food</ion-select-option>
@@ -51,20 +48,20 @@
       </ion-item>
 
       <!-- Two Party Fields -->
-      <template v-if="argumentType === 'twoParty'">
+      <template v-if="formData.type === 'twoParty'">
         <ion-item>
           <ion-label position="stacked">Your Position</ion-label>
-          <ion-textarea v-model="firstPartyPosition" placeholder="State your case..." :counter="true" maxlength="500"
-            rows="4" required></ion-textarea>
+          <ion-textarea v-model="formData.firstPartyPosition" placeholder="State your case..." :counter="true"
+            :maxlength="500" :rows="4" required></ion-textarea>
         </ion-item>
       </template>
 
       <!-- Single Proposal Fields -->
-      <template v-if="argumentType === 'singleProposal'">
+      <template v-if="formData.type === 'singleProposal'">
         <ion-item>
           <ion-label position="stacked">Your Proposal</ion-label>
-          <ion-textarea v-model="proposal" placeholder="What's your proposal?" :counter="true" maxlength="500" rows="4"
-            required></ion-textarea>
+          <ion-textarea v-model="formData.proposal" placeholder="What's your proposal?" :counter="true" :maxlength="500"
+            :rows="4" required></ion-textarea>
         </ion-item>
       </template>
 
@@ -73,11 +70,11 @@
         <ion-button expand="block" @click="publishArgument" :disabled="!isValid || isSubmitting">
           <ion-spinner v-if="isSubmitting"></ion-spinner>
           <span v-else>
-            {{ argumentType === 'twoParty' ? 'Create & Share Link' : 'Publish Proposal' }}
+            {{ formData.type === 'twoParty' ? 'Create & Share Link' : 'Publish Proposal' }}
           </span>
         </ion-button>
 
-        <ion-button expand="block" fill="outline" @click="saveDraft" class="ion-margin-top">
+        <ion-button expand="block" fill="outline" @click="saveDraft" class="ion-margin-top" :disabled="isSubmitting">
           Save as Draft
         </ion-button>
       </div>
@@ -89,67 +86,103 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { save } from 'ionicons/icons'
-import type { ArgumentType } from '~/types'
+import type { ArgumentType, ArgumentStatus } from '~/types'
 
-const argumentType = ref<ArgumentType>('twoParty')
-const topic = ref('')
-const category = ref('other')
-const firstPartyPosition = ref('')
-const proposal = ref('')
+interface FormData {
+  type: ArgumentType
+  topic: string
+  category: string
+  firstPartyPosition?: string
+  proposal?: string
+  status?: ArgumentStatus
+}
+
+// Form state
+const formData = ref<FormData>({
+  type: 'twoParty',
+  topic: '',
+  category: 'other',
+  firstPartyPosition: '',
+  proposal: ''
+})
+
 const isDraft = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 
+// Computed properties
 const isValid = computed(() => {
-  const hasCommonFields = topic.value.trim() && category.value
+  const hasCommonFields = formData.value.topic.trim() && formData.value.category
 
-  if (argumentType.value === 'twoParty') {
-    return hasCommonFields && firstPartyPosition.value.trim()
+  if (formData.value.type === 'twoParty') {
+    return hasCommonFields && formData.value.firstPartyPosition?.trim()
   }
 
-  return hasCommonFields && proposal.value.trim()
+  return hasCommonFields && formData.value.proposal?.trim()
 })
 
+// API interaction functions
 const publishArgument = async () => {
-  if (!isValid.value) return;
+  if (!isValid.value) return
 
-  isSubmitting.value = true;
-  errorMessage.value = '';
+  isSubmitting.value = true
+  errorMessage.value = ''
 
   try {
-    const data = await $fetch('/api/arguments', {
-      method: 'POST',
-      body: {
-        type: argumentType.value,
-        topic: topic.value,
-        category: category.value,
-        ...(argumentType.value === 'twoParty'
-          ? { firstPartyPosition: firstPartyPosition.value, status: 'pending' }
-          : { proposal: proposal.value, status: 'active' }
-        )
-      }
-    });
-
-    if (!data || typeof data.id !== 'number') {
-      console.error('Invalid response:', data);
-      throw new Error('Invalid response from server');
+    const payload = {
+      ...formData.value,
+      status: formData.value.type === 'twoParty' ? 'awaitingSecondParty' : 'published'
     }
 
-    if (argumentType.value === 'twoParty') {
-      await navigateTo(`/argument/share/${data.id}`); // Updated path
+    const response = await $fetch('/api/arguments', {
+      method: 'POST',
+      body: payload
+    })
+
+    if (!response || typeof response.id !== 'number') {
+      throw new Error('Invalid response from server')
+    }
+
+    // Navigate based on argument type
+    if (formData.value.type === 'twoParty') {
+      // Using shareToken for sharing URL
+      await navigateTo(`/argument/share/${response.shareToken}`)
     } else {
-      await navigateTo('/');
+      await navigateTo('/')
     }
   } catch (error: any) {
-    console.error('Error creating argument:', error);
-    errorMessage.value = error.message || 'Failed to create argument. Please try again.';
+    console.error('Error creating argument:', error)
+    errorMessage.value = error.message || 'Failed to create argument. Please try again.'
   } finally {
-    isSubmitting.value = false;
+    isSubmitting.value = false
   }
-};
+}
 
 const saveDraft = async () => {
-  // TODO: Implement draft saving
-  isDraft.value = true
+  if (!isValid.value) return
+
+  isSubmitting.value = true
+  errorMessage.value = ''
+
+  try {
+    const payload = {
+      ...formData.value,
+      status: 'draft' as const
+    }
+
+    await $fetch('/api/arguments', {
+      method: 'POST',
+      body: payload
+    })
+
+    isDraft.value = true
+    await navigateTo('/drafts')
+  } catch (error: any) {
+    console.error('Error saving draft:', error)
+    errorMessage.value = error.message || 'Failed to save draft. Please try again.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
+</template>
